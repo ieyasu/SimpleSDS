@@ -1,5 +1,5 @@
-#include "sds.h"
-#include "util.h"
+#include <sds.h>
+#include <sds-util.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -73,9 +73,11 @@ static void print_att_type_decl(FILE *fout, const char *varname,
     SDSAttInfo *prev = NULL, *ai;
     for (ai = atts; ai != NULL; ai = ai->next) {
         if (type == ai->type || (type == SDS_NO_TYPE &&
-                                 (ai->type == SDS_BYTE ||
-                                  ai->type == SDS_SHORT ||
-                                  ai->type == SDS_INT))) {
+                                 (ai->type == SDS_I8 ||
+                                  ai->type == SDS_U8 ||
+                                  ai->type == SDS_I16 ||
+                                  ai->type == SDS_U16 ||
+                                  ai->type == SDS_I32))) {
             print_att_decl(fout, varname, prev, ai);
             prev = ai;
         }

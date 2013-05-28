@@ -1,7 +1,7 @@
 /* sds-dump.c - prints human- and script-readable parts of supported SDS files.
  */
-#include "c99/sds.h"
-#include "c99/util.h"
+#include <sds.h>
+#include <sds-util.h>
 
 #include <stdarg.h>
 #include <stdio.h>

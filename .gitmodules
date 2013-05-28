@@ -1,3 +1,0 @@
-[submodule "tools/fdoc"]
-	path = tools/fdoc
-	url = git@github.com:ieyasu/fdoc.git

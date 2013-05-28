@@ -1,11 +1,13 @@
-#include "sds.h"
+#include <sds.h>
 
 const char *f90_type_str(SDSType type)
 {
     switch (type) {
-    case SDS_BYTE:
-    case SDS_SHORT:
-    case SDS_INT:
+    case SDS_I8:
+    case SDS_U8:
+    case SDS_I16:
+    case SDS_U16:
+    case SDS_I32:
         return "integer";
     case SDS_FLOAT:
         return "real*4";

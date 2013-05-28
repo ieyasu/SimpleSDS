@@ -1,5 +1,5 @@
 #include "sds.h"
-#include "util.h"
+#include "sds-util.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>

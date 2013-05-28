@@ -2,7 +2,7 @@
  * Copyright (C) 2011 Matthew S. Bishop
  */
 #include "sds.h"
-#include "util.h"
+#include "sds-util.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

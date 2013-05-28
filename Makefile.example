@@ -16,15 +16,12 @@ ifeq ($(NC4),true)
 	need_h5=true
 endif
 
-CPP = cpp
-
 ifeq ($(COMPILER),pgi)
 	PFX = pgi
 
 	CC = pgcc
 	CFLAGS = -g
 	F90 = pgf90
-	FFLAGS = -g
 
 else
 	PFX = gcc
@@ -32,7 +29,6 @@ else
 	CC = gcc
 	CFLAGS = -g -Wall -std=c99 -pedantic
 	F90 = gfortran
-	FFLAGS = -g -Wall
 endif
 
 ifeq ($(NC4),true)
@@ -40,9 +36,8 @@ ifeq ($(NC4),true)
 else
 	NC_ROOT = /usr/local/netcdf3-$(PFX)
 endif
-CFLAGS += -I. -I$(NC_ROOT)/include -Ic99/
-FFLAGS += -I. -I$(NC_ROOT)/include
-LDFLAGS = -L$(NC_ROOT)/lib
+CFLAGS  += -I$(NC_ROOT)/include -Isrc/
+LDFLAGS += -L$(NC_ROOT)/lib
 
 H4_ROOT = /usr/local/hdf4-$(PFX)
 
@@ -53,7 +48,6 @@ endif
 
 ifeq ($(NC4),true)
 	CFLAGS += -DHAVE_NETCDF4
-	FFLAGS += -DHAVE_NETCDF4
 	LDFLAGS += -lnetcdff -lnetcdf
 else
 	LDFLAGS += -lnetcdf
@@ -65,19 +59,19 @@ ifeq ($(need_h5),true)
 	LDFLAGS += -L$(H5_ROOT)/lib -lhdf5_hl -lhdf5 -lz
 endif
 
-C_LDFLAGS = $(LDFLAGS) -Lc99 -lm
+LDFLAGS += -Lsrc -lm
 
 # ---
 
-C99_OBJS = \
-	c99/sds.o \
-	c99/sds_sort.o \
-	c99/util.o \
-	c99/sds.o \
-	c99/sds_nc.o
+LIB_OBJS = \
+	src/sds.o \
+	src/sds_sort.o \
+	src/sds-util.o \
+	src/sds.o \
+	src/sds_nc.o
 
 ifeq ($(H4),true)
-	C99_OBJS += c99/sds_hdf4.o
+	LIB_OBJS += src/sds_hdf4.o
 endif
 
 NC2CODE_OBJS = \
@@ -87,75 +81,35 @@ NC2CODE_OBJS = \
 	nc2code/generate_simple_f90.o 
 
 .SUFFIXES:
-.SUFFIXES: .c .f90 .F90 .o
+.SUFFIXES: .c .o
 
 .PHONY: all test
 
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
-.F90.o:
-	$(CPP) $(FFLAGS) -w $< $*.f90
-	$(F90) $(FFLAGS) -c $*.f90 -o $@ || (rm $*.f90; false)
-	rm $*.f90
+all: lib sds-dump nc2code/nc2code
 
-.f90.o:
-	$(F90) $(FFLAGS) -c $< -o $@
+lib: src/libsimplesds.a
 
-all: test lib nc2code/nc2code doc
-lib: c99/libsimplesds.a
-
-simple_netcdf.F90: simple_netcdf.F90.erb
-	tools/ferb $< >$@
-
-c99/libsimplesds.a: $(C99_OBJS)
+src/libsimplesds.a: $(LIB_OBJS)
 	ar -ru $@ $^
 
-nc2code/nc2code: $(C99_OBJS) $(NC2CODE_OBJS)
-	$(CC) -o $@ $^ $(C_LDFLAGS)
+sds-dump: src/libsimplesds.a sds-dump.o
+	$(CC) -o $@ sds-dump.o -lsimplesds $(LDFLAGS)
 
-sds-dump: c99/libsimplesds.a sds-dump.o
-	$(CC) -o $@ sds-dump.o -lsimplesds $(C_LDFLAGS)
-
-doc: doc/simple_netcdf.html
-
-doc/simple_netcdf.html: simple_netcdf.F90
-	tools/fdoc/bin/fdoc -t "Simple SDS NetCDF Module" $^ > $@
-
-test: test/lowlevel_nc test/snc_with_file_line test/snc_no_file_line \
-	test/cf_nc test/cf_nc_z test/timestep_nc test/open_var
-
-test/lowlevel_nc: simple_netcdf.o test/lowlevel_nc.o
-	$(F90) -o $@ $^ $(LDFLAGS)
-
-test/snc_with_file_line: simple_netcdf.o test/snc_with_file_line.o
-	$(F90) -o $@ $^ $(LDFLAGS)
-
-test/snc_no_file_line: simple_netcdf.o test/snc_no_file_line.o
-	$(F90) -o $@ $^ $(LDFLAGS)
-
-test/cf_nc: simple_netcdf.o test/cf_nc.o
-	$(F90) -o $@ $^ $(LDFLAGS)
-
-test/cf_nc_z: simple_netcdf.o test/cf_nc_z.o
-	$(F90) -o $@ $^ $(LDFLAGS)
-
-test/timestep_nc: simple_netcdf.o test/timestep_nc.o
-	$(F90) -o $@ $^ $(LDFLAGS)
-
-test/open_var: simple_netcdf.o test/open_var.o
-	$(F90) -o $@ $^ $(LDFLAGS)
+nc2code/nc2code: $(LIB_OBJS) $(NC2CODE_OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f *~ *.o *.mod simple.nc cf.nc
-	rm -f c99/*.o c99/lib*.a
-	rm -f test/*.o test/lowlevel_nc test/snc_*_file_line test/cf_nc test/timestep_nc
+	rm -f *~ *.o
+	rm -f src/*.o src/lib*.a
 	rm -f nc2code/*.o nc2code/*~
 
 
 # deps
-c99/sds.c: c99/sds.h
-c99/sds_hdf.c: c99/sds.h
-c99/sds_nc.c: c99/sds.h
-c99/sds_sort.c: c99/sds.h
-c99/util.c: c99/util.h
+src/sds.c: src/sds.h
+src/sds_hdf.c: src/sds.h
+src/sds_nc.c: src/sds.h
+src/sds_sort.c: src/sds.h
+src/sds-util.c: src/sds-util.h

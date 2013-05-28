@@ -1,7 +1,7 @@
 /* util.c - Utility functions for SDS converter.
  * Copyright (C) 2011 Matthew Bishop
  */
-#include "util.h"
+#include "sds-util.h"
 #include <stdio.h>
 #include <string.h>
 
