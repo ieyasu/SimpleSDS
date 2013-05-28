@@ -191,7 +191,7 @@ static SDSAttInfo *read_attributes(const char *path, int obj_id, int natts)
         size_t typesize = h4_typesize(type);
         if (type == DFNT_CHAR8 || type == DFNT_UCHAR8)
             nvalues++;
-        void *data = xmalloc(typesize * nvalues);
+        void *data = sds_alloc(typesize * nvalues);
         status = SDreadattr(obj_id, i, data);
         CHECK_HDF_ERROR(path, status);
         if (type == DFNT_CHAR8 || type == DFNT_UCHAR8)

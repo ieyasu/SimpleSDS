@@ -43,7 +43,7 @@ H4_ROOT = /usr/local/hdf4-$(PFX)
 
 ifeq ($(H4),true)
 	CFLAGS += -I$(H4_ROOT)/include -DHAVE_HDF4
-	LDFLAGS += -L$(H4_ROOT)/lib -lmfhdf -ldf -ljpeg -lz
+	LDFLAGS += -L$(H4_ROOT)/lib -lmfhdf -ldf -ljpeg -lz -lm
 endif
 
 ifeq ($(NC4),true)
@@ -56,10 +56,8 @@ endif
 H5_ROOT = /usr/local/hdf5-$(PFX)
 ifeq ($(need_h5),true)
 	CFLAGS += -I$(H5_ROOT)/include -DHAVE_HDF5
-	LDFLAGS += -L$(H5_ROOT)/lib -lhdf5_hl -lhdf5 -lz
+	LDFLAGS += -L$(H5_ROOT)/lib -lhdf5_hl -lhdf5 -lz -lm
 endif
-
-LDFLAGS += -Lsrc -lm
 
 # ---
 
