@@ -1,6 +1,7 @@
 #ifndef SDS_H
 #define SDS_H
 
+#include <alloca.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -44,6 +45,28 @@ typedef enum {
  * for that type.
  */
 extern const char *sds_type_names[];
+
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
+void *sds_alloc(size_t bytes);
+void *sds_alloc0(size_t bytes);
+void *sds_realloc(void *ptr, size_t bytes);
+
+#define NEW(type) (type *)sds_alloc(sizeof(type))
+#define NEW0(type) (type *)sds_alloc0(sizeof(type))
+#define NEWA(type,n) (type *)sds_alloc(sizeof(type) * (n))
+#define ALLOCA(type,n) (type *)alloca(sizeof(type) * (n))
+
+char *sds_strdup(const char *);
+
+/* Generic list type for list handling functions.
+ */
+typedef struct SDSList {
+    struct SDSList *next;
+    char *key;
+} SDSList;
 
 // Constants for the iscoord value of SDSVarInfo
 #define SDS_COORD 1
@@ -190,5 +213,13 @@ SDSVarInfo *sds_delete_vars(SDSVarInfo *vars, const char **names, int n_names);
 
 SDSAttInfo *sds_sort_attributes(SDSAttInfo *atts);
 SDSVarInfo *sds_sort_vars(SDSVarInfo *vars);
+
+
+// Utility functions ---
+
+size_t sds_list_count(SDSList *l);
+SDSList *sds_list_reverse(SDSList *l);
+SDSList *sds_list_find(SDSList *l, char *key);
+
 
 #endif /* SDS_H */

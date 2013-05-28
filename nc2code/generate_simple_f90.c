@@ -1,5 +1,4 @@
 #include <sds.h>
-#include <sds-util.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

@@ -2,7 +2,6 @@
  * Copyright (C) 2011 Matthew S. Bishop
  */
 #include "sds.h"
-#include "util.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -63,7 +62,7 @@ static H4Buffer *h4buffer_create(SDSInfo *sds)
 static void h4buffer_ensure(H4Buffer *buf, size_t cap_needed)
 {
     if (buf->size < cap_needed) {
-        buf->data = xrealloc(buf->data, cap_needed);
+        buf->data = sds_realloc(buf->data, cap_needed);
         buf->size = cap_needed;
     }
 }
@@ -200,7 +199,7 @@ static SDSAttInfo *read_attributes(const char *path, int obj_id, int natts)
 
         // stick attribute in struct in list
         att = NEW(SDSAttInfo);
-        att->name = xstrdup(buf);
+        att->name = sds_strdup(buf);
         att->type = h4_to_sdstype(type);
         att->count = (size_t)nvalues;
         att->bytes = typesize;
@@ -209,7 +208,7 @@ static SDSAttInfo *read_attributes(const char *path, int obj_id, int natts)
         att->next = att_list;
         att_list = att;
     }
-    return (SDSAttInfo *)list_reverse((List *)att_list);
+    return (SDSAttInfo *)sds_list_reverse((SDSList *)att_list);
 }
 
 // match /fakeDim\d+/
@@ -273,7 +272,7 @@ static SDSDimInfo **read_dimensions(SDSInfo *sds, int sds_id, int rank,
         SDSDimInfo *dim = dim_by_id_or_same_fake(sds->dims, dim_id, size, buf);
         if (!dim) {
             dim = NEW0(SDSDimInfo);
-            dim->name = xstrdup(buf);
+            dim->name = sds_strdup(buf);
             dim->size = dim_sizes[i];
             dim->isunlim = (size == 0);
             dim->id = dim_id;
@@ -306,7 +305,7 @@ SDSInfo *open_h4_sds(const char *path)
     CHECK_HDF_ERROR(path, status);
 
     SDSInfo *sds = NEW0(SDSInfo);
-    sds->path = xstrdup(path);
+    sds->path = sds_strdup(path);
     sds->type = SDS_HDF4_FILE;
     sds->id = sd_id;
 
@@ -325,7 +324,7 @@ SDSInfo *open_h4_sds(const char *path)
         CHECK_HDF_ERROR(path, status);
 
         SDSVarInfo *var = NEW0(SDSVarInfo);
-        var->name = xstrdup(buf);
+        var->name = sds_strdup(buf);
         var->type = h4_to_sdstype(type);
         var->iscoord = SDiscoordvar(sds_id);
         var->ndims = rank;
@@ -359,8 +358,8 @@ SDSInfo *open_h4_sds(const char *path)
         status = SDendaccess(sds_id);
         CHECK_HDF_ERROR(path, status);
     }
-    sds->vars = (SDSVarInfo *)list_reverse((List *)sds->vars);
-    sds->dims = (SDSDimInfo *)list_reverse((List *)sds->dims);
+    sds->vars = (SDSVarInfo *)sds_list_reverse((SDSList *)sds->vars);
+    sds->dims = (SDSDimInfo *)sds_list_reverse((SDSList *)sds->dims);
 
     sds->funcs = &h4_funcs;
     return sds;

@@ -1,7 +1,6 @@
 /* sds-dump.c - prints human- and script-readable parts of supported SDS files.
  */
 #include <sds.h>
-#include <sds-util.h>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -209,15 +208,16 @@ static void print_full_summary(SDSInfo *sds)
     printf(": %s format\n  ", sds_file_types[(int)sds->type]);
 
     esc_color(ATTNAME_COLOR);
-    printf("%u global attributes", (unsigned)list_count((List *)sds->gatts));
+    printf("%u global attributes",
+           (unsigned)sds_list_count((SDSList *)sds->gatts));
     esc_stop();
     fputs(", ", stdout);
     esc_color(DIMNAME_COLOR);
-    printf("%u dimensions", (unsigned)list_count((List *)sds->dims));
+    printf("%u dimensions", (unsigned)sds_list_count((SDSList *)sds->dims));
     esc_stop();
     fputs(", ", stdout);
     esc_color(VARNAME_COLOR);
-    printf("%u variables\n", (unsigned)list_count((List *)sds->vars));
+    printf("%u variables\n", (unsigned)sds_list_count((SDSList *)sds->vars));
     esc_stop();
 
     if (sds->gatts) {

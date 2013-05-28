@@ -2,7 +2,6 @@
  * Copyright (C) 2011 Matthew S. Bishop
  */
 #include "sds.h"
-#include "sds-util.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,7 +49,7 @@ static NCBuffer *nc_buffer_create(SDSInfo *sds)
 static void nc_buffer_ensure(NCBuffer *buf, size_t cap_needed)
 {
     if (buf->size < cap_needed) {
-        buf->data = xrealloc(buf->data, cap_needed);
+        buf->data = sds_realloc(buf->data, cap_needed);
         buf->size = cap_needed;
     }
 }
@@ -293,7 +292,7 @@ static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
         default: abort(); break;
         }
 #endif
-        data = xmalloc(count * bytes);
+        data = sds_alloc(count * bytes);
         status = nc_get_att(ncid, id, buf, data);
         CHECK_NC_ERROR(path, status);
         if (type == NC_CHAR) {
@@ -301,7 +300,7 @@ static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
         }
 
         att = NEW(SDSAttInfo);
-        att->name = xstrdup(buf);
+        att->name = sds_strdup(buf);
         att->type = nc_to_sds_type(type);
         att->count = count;
         att->bytes = bytes;
@@ -310,7 +309,7 @@ static SDSAttInfo *read_attributes(const char *path, int ncid, int id,
         att->next = att_list;
         att_list = att;
     }
-    return (SDSAttInfo *)list_reverse((List *)att_list);
+    return (SDSAttInfo *)sds_list_reverse((SDSList *)att_list);
 }
 
 /* Checks the list of dimensions for a match with the given variable name.
@@ -359,7 +358,7 @@ SDSInfo *open_nc_sds(const char *path)
     CHECK_NC_ERROR(path, status);
 
     sds = NEW0(SDSInfo);
-    sds->path = xstrdup(path);
+    sds->path = sds_strdup(path);
     sds->id = ncid;
 
 #if HAVE_NETCDF4
@@ -407,7 +406,7 @@ SDSInfo *open_nc_sds(const char *path)
         CHECK_NC_ERROR(path, status);
 
         dim = NEW(SDSDimInfo);
-        dim->name = xstrdup(buf);
+        dim->name = sds_strdup(buf);
         dim->size = size;
         dim->isunlim = (ids[i] == unlimdimid);
         dim->id = ids[i];
@@ -418,7 +417,7 @@ SDSInfo *open_nc_sds(const char *path)
         if (ids[i] == unlimdimid)
             sds->unlimdim = dim;
     }
-    sds->dims = (SDSDimInfo *)list_reverse((List *)sds->dims);
+    sds->dims = (SDSDimInfo *)sds_list_reverse((SDSList *)sds->dims);
 
     /* read variable info */
 #if HAVE_NETCDF4
@@ -437,7 +436,7 @@ SDSInfo *open_nc_sds(const char *path)
         CHECK_NC_ERROR(path, status);
 
         vi = NEW(SDSVarInfo);
-        vi->name = xstrdup(buf);
+        vi->name = sds_strdup(buf);
         vi->type = nc_to_sds_type(type);
         vi->iscoord = is_coord_var(sds->dims, buf);
         vi->ndims = nvdims;
@@ -457,7 +456,7 @@ SDSInfo *open_nc_sds(const char *path)
         vi->next = sds->vars;
         sds->vars = vi;
     }
-    sds->vars = (SDSVarInfo *)list_reverse((List *)sds->vars);
+    sds->vars = (SDSVarInfo *)sds_list_reverse((SDSList *)sds->vars);
 
     sds->funcs = &nc_funcs;
     return sds;
@@ -566,7 +565,7 @@ void write_as_nc_sds(const char *path, SDSInfo *sds)
 
     nc_enddef(ncid);
 
-    sds->path = xstrdup(path);
+    sds->path = sds_strdup(path);
 #if HAVE_NETCDF4
     sds->type = SDS_NC4_FILE;
 #else

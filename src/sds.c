@@ -1,5 +1,4 @@
 #include "sds.h"
-#include "sds-util.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -127,7 +126,7 @@ SDSAttInfo *sds_create_att(SDSAttInfo *next, const char *name, SDSType type,
 {
     SDSAttInfo *att = NEW(SDSAttInfo);
     att->next = next;
-    att->name = xstrdup(name);
+    att->name = sds_strdup(name);
     att->type = type;
     att->count = count;
     att->bytes = sds_type_size(type);
@@ -157,7 +156,7 @@ SDSDimInfo *sds_create_dim(SDSDimInfo *next, const char *name, size_t size,
 {
     SDSDimInfo *dim = NEW(SDSDimInfo);
     dim->next = next;
-    dim->name = xstrdup(name);
+    dim->name = sds_strdup(name);
     dim->size = size;
     dim->isunlim = isunlim;
     dim->id = -1;
@@ -202,7 +201,7 @@ SDSVarInfo *sds_create_var(SDSVarInfo *next, const char *name, SDSType type,
 {
     SDSVarInfo *var = NEW(SDSVarInfo);
     var->next = next;
-    var->name = xstrdup(name);
+    var->name = sds_strdup(name);
     var->type = type;
     var->iscoord = iscoord;
     var->ndims = ndims;

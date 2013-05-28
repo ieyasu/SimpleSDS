@@ -112,4 +112,4 @@ src/sds.c: src/sds.h
 src/sds_hdf.c: src/sds.h
 src/sds_nc.c: src/sds.h
 src/sds_sort.c: src/sds.h
-src/sds-util.c: src/sds-util.h
+src/sds-util.c: src/sds.h

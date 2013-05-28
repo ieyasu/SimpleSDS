@@ -1,5 +1,4 @@
 #include <sds.h>
-#include <sds-util.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -147,7 +146,7 @@ void generate_f90_code(FILE *fout, SDSInfo *sds, int generate_att)
     fputs("    character(512) :: filename\n", fout);
     fputs("    integer :: ncid, i", fout);
     fprintf(fout, "    integer, dimension(%u) :: start, count\n",
-            (unsigned)list_count((List *)sds->dims));
+            (unsigned)sds_list_count((SDSList *)sds->dims));
 
     /* dimension id vars */
     w = MAX_WIDTH;
