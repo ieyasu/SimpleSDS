@@ -67,14 +67,29 @@ pid_t one_open(int *whichfd)
 
 int open_pager(void)
 {
+    char *argv[] = {NULL, NULL, NULL};
     int pager_in = STDIN_FILENO;
     pid_t pid = one_open(&pager_in);
     if (pid == 0) { // child
-        char * const argv[] = {"less", "-R", NULL};
-        if (execvp(argv[0], argv)) {
-            perror("exec()ing pager");
-            abort();
+        argv[0] = getenv("PAGER");
+        if (argv[0] && strlen(argv[0]) > 0) {
+            if (!strcmp(argv[0], "less")) {
+                argv[1] = "-R";
+            }
+            execvp(argv[0], argv);
+        } else {
+            // first try less
+            argv[0] = "less"; argv[1] = "-R";
+            execvp(argv[0], argv);
+
+            // now try more
+            argv[0] = "more"; argv[1] = NULL;
+            execvp(argv[0], argv);
+            // fallthrough to error code below
         }
+        fprintf(stderr, "failed to exec pager '%s': %s\n",
+                argv[0], strerror(errno));
+        abort();
     }
     return pager_in;
 }
@@ -115,26 +130,33 @@ int main(int argc, char **argv)
     }
 
     // parent
-    char buf[1024];
-    int n;
-
-    int pager_in = open_pager();
-
     errno = 0;
-    while ((n = (int)read(cmd_out, buf, sizeof(buf))) > 0) {
-        if (write(pager_in, buf, (size_t)n) < n) {
-            perror("writing output from command");
-            abort();
-        }
+
+    char buf[1024];
+    int n = read(cmd_out, buf, sizeof(buf));
+    if (n < sizeof(buf)) {
+        if (n > 0)
+            write(STDOUT_FILENO, buf, n);
+    } else {
+        int pager_in = open_pager();
+
+        do {
+            if (write(pager_in, buf, (size_t)n) < n) {
+                perror("writing output from command");
+                abort();
+            }
+        } while ((n = (int)read(cmd_out, buf, sizeof(buf))) > 0);
+
+        close(pager_in);
+        waitpid(-1, NULL, 0);
     }
     close(cmd_out);
-    close(pager_in);
+
     if (errno != 0) {
         perror("after read");
         abort();
     }
 
-    waitpid(-1, NULL, 0);
     waitpid(-1, NULL, 0);
 
     return 0;
