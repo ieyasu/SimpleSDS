@@ -30,6 +30,7 @@ else
 	CFLAGS = -g -Wall -std=c99 -pedantic
 	F90 = gfortran
 endif
+CFLAGS += -D_POSIX_C_SOURCE
 
 ifeq ($(NC4),true)
 	NC_ROOT = /usr/local/netcdf4-$(PFX)
@@ -81,20 +82,25 @@ NC2CODE_OBJS = \
 .SUFFIXES:
 .SUFFIXES: .c .o
 
-.PHONY: all test
+.PHONY: all lib sds
 
 .c.o:
 	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
-all: lib sds-dump nc2code/nc2code
+all: lib sds nc2code/nc2code
 
 lib: src/libsimplesds.a
 
 src/libsimplesds.a: $(LIB_OBJS)
 	ar -ru $@ $^
 
-sds-dump: src/libsimplesds.a sds-dump.o
-	$(CC) -o $@ sds-dump.o -lsimplesds $(LDFLAGS)
+sds: sds/sds sds/sds-dump
+
+sds/sds: sds/sds.o
+	$(CC) -o $@ sds/sds.o $(LDFLAGS)
+
+sds/sds-dump: src/libsimplesds.a sds/sds-dump.o
+	$(CC) -o $@ sds/sds-dump.o src/libsimplesds.a $(LDFLAGS)
 
 nc2code/nc2code: $(LIB_OBJS) $(NC2CODE_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
