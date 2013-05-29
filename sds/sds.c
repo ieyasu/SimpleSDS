@@ -9,7 +9,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-static const char * const subcommands[] = { "dump" };
+static const char * const subcommands[] = { "diff", "dump" };
 #define N_SUBCOMMANDS (sizeof(subcommands) / sizeof(subcommands[0]))
 
 void checked_dup2(int oldfd, int newfd)
@@ -94,6 +94,30 @@ int open_pager(void)
     return pager_in;
 }
 
+#define MAX_ARGS 100
+
+void exec_subcommand(int orig_argc, char **orig_argv)
+{
+    char *argv[MAX_ARGS], bin[512], subcommand[512];
+
+    snprintf(bin, sizeof(bin), "sds-%s", orig_argv[1]);
+    snprintf(subcommand, sizeof(subcommand), "sds %s", orig_argv[1]);
+
+    argv[0] = subcommand;
+    argv[1] = "-G"; // XXX not always
+    int i = 2;
+    while (i < orig_argc && i < MAX_ARGS) {
+        argv[i] = orig_argv[i];
+        i++;
+    }
+    argv[i] = NULL;
+
+    execvp(bin, argv);
+
+    fprintf(stderr, "exec()ing '%s': %s\n", bin, strerror(errno));
+    abort();
+}
+
 void usage(void)
 {
     fputs("Usage: sds COMMAND ARG...\n", stderr);
@@ -121,19 +145,15 @@ int main(int argc, char **argv)
     int cmd_out = STDOUT_FILENO;
     pid_t pid = one_open(&cmd_out);
     if (pid == 0) { // child
-        //execvp("sds-dump", ["sds dump", argv[1..-1], NULL]);
-        char * const argv_[] = {"sds dump", "-G", "/scratch3/bishop/sample_sds/tavg1_2d_flx_Nx.20120402_0830.nc4", NULL};
-        if (execvp("sds/sds-dump", argv_)) {
-            perror("exec()ing sds-dump");
-            abort();
-        }
+        exec_subcommand(argc, argv);
     }
 
     // parent
     errno = 0;
 
-    char buf[1024];
+    char buf[2048];
     int n = read(cmd_out, buf, sizeof(buf));
+    fprintf(stderr, "initial read from cmd: %i bytes\n", n);
     if (n < sizeof(buf)) {
         if (n > 0)
             write(STDOUT_FILENO, buf, n);
