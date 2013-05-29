@@ -1,13 +1,6 @@
 *.o
-*.mod
 *.a
-sds-dump
-test/lowlevel_nc
-test/snc_no_file_line
-test/snc_with_file_line
-test/cf_nc
+sds/sds
+sds/sds-dump
 nc2code/nc2code
-test/timestep_nc
-test/cf_nc_z
-test/open_var
 Makefile
