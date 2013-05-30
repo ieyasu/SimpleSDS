@@ -452,7 +452,7 @@ static void print_var_values(SDSInfo *sds)
 
 static const char *USAGE =
     "Usage: %s [OPTION]... INFILE\n"
-    "Dumps part or all of INFILE, producing a colorful summary of its contents "
+    "Dumps part or all of INFILE, producing a colorful summary of its contents\n"
     "by default.\n"
     "\n"
     "Options:\n"
@@ -488,7 +488,7 @@ static void usage(const char *progname, const char *message, ...)
     va_start(ap, message);
     vfprintf(stderr, message, ap);
     va_end(ap);
-    puts("\n");
+    fputs("\n", stderr);
 
     fprintf(stderr, USAGE, pname);
     exit(-1);
