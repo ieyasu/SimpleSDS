@@ -96,19 +96,22 @@ int open_pager(void)
 
 #define MAX_ARGS 100
 
-void exec_subcommand(int orig_argc, char **orig_argv)
+void exec_subcommand(int orig_argc, char **orig_argv, int istty)
 {
     char *argv[MAX_ARGS], bin[512], subcommand[512];
 
     snprintf(bin, sizeof(bin), "sds-%s", orig_argv[1]);
     snprintf(subcommand, sizeof(subcommand), "sds %s", orig_argv[1]);
 
-    argv[0] = subcommand;
-    argv[1] = "-G"; // XXX not always
-    int i = 2;
-    while (i < orig_argc && i < MAX_ARGS) {
-        argv[i] = orig_argv[i];
-        i++;
+    int i = 0;
+    argv[i++] = subcommand;
+    if (istty) {
+        fputs("coloring output\n", stderr);
+        argv[i++] = "-G";
+    }
+    int j = 2;
+    while (i < MAX_ARGS && j < orig_argc) {
+        argv[i++] = orig_argv[j++];
     }
     argv[i] = NULL;
 
@@ -142,10 +145,12 @@ int main(int argc, char **argv)
         usage();
     }
 
+    int istty = isatty(STDOUT_FILENO);
+
     int cmd_out = STDOUT_FILENO;
     pid_t pid = one_open(&cmd_out);
     if (pid == 0) { // child
-        exec_subcommand(argc, argv);
+        exec_subcommand(argc, argv, istty);
     }
 
     // parent
@@ -153,7 +158,6 @@ int main(int argc, char **argv)
 
     char buf[2048];
     int n = read(cmd_out, buf, sizeof(buf));
-    fprintf(stderr, "initial read from cmd: %i bytes\n", n);
     if (n < sizeof(buf)) {
         if (n > 0)
             write(STDOUT_FILENO, buf, n);
