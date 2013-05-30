@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 
     char buf[4096];
     int n = read(cmd_out, buf, sizeof(buf));
-    if (larger_than_terminal(buf, n)) {
+    if (n == sizeof(buf) || larger_than_terminal(buf, n)) {
         int pager_in = open_pager();
 
         do {
