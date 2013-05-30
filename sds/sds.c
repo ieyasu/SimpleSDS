@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -105,10 +106,8 @@ void exec_subcommand(int orig_argc, char **orig_argv, int istty)
 
     int i = 0;
     argv[i++] = subcommand;
-    if (istty) {
-        fputs("coloring output\n", stderr);
+    if (istty)
         argv[i++] = "-G";
-    }
     int j = 2;
     while (i < MAX_ARGS && j < orig_argc) {
         argv[i++] = orig_argv[j++];
@@ -119,6 +118,36 @@ void exec_subcommand(int orig_argc, char **orig_argv, int istty)
 
     fprintf(stderr, "exec()ing '%s': %s\n", bin, strerror(errno));
     abort();
+}
+
+int larger_than_terminal(char *buf, int buflen)
+{
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    w.ws_row -= 2;
+
+    int lines = 0, col = 0;
+    for (int i = 0; i < buflen; i++) {
+        switch (buf[i]) {
+        case '\n':
+            lines++;
+            col = 0;
+            break;
+        case '\033': // ANSI esc sequence
+            while (i < buflen && buf[i] != 'm')
+                i++;
+            break;
+        default:
+            if (++col >= w.ws_col) {
+                lines++;
+                col = 0;
+            }
+            break;
+        }
+        if (lines >= w.ws_row)
+            return -1; // too long!
+    }
+    return 0;
 }
 
 void usage(void)
@@ -156,12 +185,9 @@ int main(int argc, char **argv)
     // parent
     errno = 0;
 
-    char buf[2048];
+    char buf[4096];
     int n = read(cmd_out, buf, sizeof(buf));
-    if (n < sizeof(buf)) {
-        if (n > 0)
-            write(STDOUT_FILENO, buf, n);
-    } else {
+    if (larger_than_terminal(buf, n)) {
         int pager_in = open_pager();
 
         do {
@@ -173,6 +199,8 @@ int main(int argc, char **argv)
 
         close(pager_in);
         waitpid(-1, NULL, 0);
+    } else if (n > 0) {
+        write(STDOUT_FILENO, buf, n);
     }
     close(cmd_out);
 
