@@ -153,19 +153,40 @@ static void print_value(SDSType type, void *ary, size_t u)
     esc_stop();
 }
 
+static void print_string_value(const char *s)
+{
+    esc_color(QUOTE_COLOR);
+    fputc('"', stdout);
+    esc_color(VALUE_COLOR);
+    for (int i = 0; s[i] != '\0'; i++) {
+        switch (s[i]) {
+        case '\n':
+            fputc('\n', stdout);
+            esc_color(VALUE_COLOR); // re-color for new line
+            break;
+        case '"':
+            fputc('\\', stdout);
+            // FALLTHROUGH intended
+        default:
+            fputc(s[i], stdout);
+            break;
+        }
+    }
+    esc_stop();
+    esc_color(QUOTE_COLOR);
+    fputc('"', stdout);
+    esc_stop();
+}
+
 static void print_att_values(SDSAttInfo *att)
 {
+    if (!strcmp(att->name, "CoreMetadata.INVENTORYMETADATA.MEASUREDPARAMETER.MEASUREDPARAMETERCONTAINER.CLASS")) {
+        fprintf(stderr, "type = '%i'\n", att->type);
+        fprintf(stderr, "val = '%s'\n", att->data.str);
+    }
+
     if (att->type == SDS_STRING) {
-        esc_color(QUOTE_COLOR);
-        putc('"', stdout);
-        esc_stop();
-        esc_color(VALUE_COLOR);
-        // XXX escape embedded quotes
-        fputs(att->data.str, stdout);
-        esc_stop();
-        esc_color(QUOTE_COLOR);
-        putc('"', stdout);
-        esc_stop();
+        print_string_value(att->data.v);
     } else { // all other value types
         for (int i = 0;;) {
             print_value(att->type, att->data.v, i);
