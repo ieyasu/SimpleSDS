@@ -26,17 +26,24 @@ enum OutputType {
     PRINT_VAR
 };
 
+enum DimStyle {
+    C_DIM_STYLE,
+    FORTRAN_DIM_STYLE
+};
+
 struct OutOpts {
     char *infile;
     int color;
     int single_column;
     char *separator;
+    enum DimStyle dim_style;
     enum OutputType out_type;
     const char *name; // dim, var, etc. to narrow output to
     const char *att;
 };
 
-static struct OutOpts opts = {NULL, 0, 0, " ", FULL_SUMMARY, NULL, NULL};
+static struct OutOpts opts = {NULL, 0, 0, " ", FORTRAN_DIM_STYLE,
+                              FULL_SUMMARY, NULL, NULL};
 
 #ifndef S_ISLNK
 #  define S_ISLNK(mode) (((mode) & S_IFLNK) != 0)
@@ -180,11 +187,6 @@ static void print_string_value(const char *s)
 
 static void print_att_values(SDSAttInfo *att)
 {
-    if (!strcmp(att->name, "CoreMetadata.INVENTORYMETADATA.MEASUREDPARAMETER.MEASUREDPARAMETERCONTAINER.CLASS")) {
-        fprintf(stderr, "type = '%i'\n", att->type);
-        fprintf(stderr, "val = '%s'\n", att->data.str);
-    }
-
     if (att->type == SDS_STRING) {
         print_string_value(att->data.v);
     } else { // all other value types
@@ -207,7 +209,14 @@ static void print_atts(SDSAttInfo *att)
 
     // string length
     if (att->type == SDS_STRING) {
-        printf("[%u]", (unsigned)(att->count - 1));
+        switch (opts.dim_style) {
+        case C_DIM_STYLE:
+            printf("[%u]", (unsigned)(att->count - 1));
+            break;
+        case FORTRAN_DIM_STYLE:
+            printf("(%u)", (unsigned)(att->count - 1));
+            break;
+        }
     }
 
     fputs(" = ", stdout);
@@ -276,12 +285,28 @@ static void print_full_summary(SDSInfo *sds)
         esc_color(VARNAME_COLOR);
         fputs(var->name, stdout);
         esc_stop();
-        for (int i = 0; i < var->ndims; i++) {
-            putc('[', stdout);
-            esc_color(DIMNAME_COLOR);
-            fputs(var->dims[i]->name, stdout);
-            esc_stop();
-            printf("=%u]", (unsigned)var->dims[i]->size);
+        switch (opts.dim_style) {
+        case C_DIM_STYLE:
+            for (int i = 0; i < var->ndims; i++) {
+                putc('[', stdout);
+                esc_color(DIMNAME_COLOR);
+                fputs(var->dims[i]->name, stdout);
+                esc_stop();
+                printf("=%u]", (unsigned)var->dims[i]->size);
+            }
+            break;
+        case FORTRAN_DIM_STYLE:
+            putc('(', stdout);
+            for (int i = var->ndims - 1; i >= 0; i--) {
+                esc_color(DIMNAME_COLOR);
+                fputs(var->dims[i]->name, stdout);
+                esc_stop();
+                printf("=%u", (unsigned)var->dims[i]->size);
+                if (i > 0)
+                    putc(',', stdout);
+            }
+            putc(')', stdout);
+            break;
         }
         if (var->iscoord)
             fputs(" (coordinate)\n", stdout);
@@ -482,8 +507,11 @@ static const char *USAGE =
     "                 variable is selected instead of global attributes.  If an\n"
     "                 attribute name is given (identified with the '@'), just that\n"
     "                 attribute's value(s) are printed.\n"
+    "  -c             print variable dimensions in C order and format\n"
     "  -d [VAR]       print dimension sizes for the whole file or the specified\n"
     "                 variable, if given\n"
+    "  -f             print variable dimensions in Fortran order and format\n"
+    "                 (default)\n"
     "  -g             never color the output\n"
     "  -G             always color the output\n"
     "  -h             print this help and exit\n"
@@ -552,9 +580,13 @@ static void parse_arg(int argc, char **argv, int *ip)
                 opts.name = s;
             }
         }
+    } else if (!strcmp(opt, "c")) { // C-style var dimensions
+        opts.dim_style = C_DIM_STYLE;
     } else if (!strcmp(opt, "d")) { // list dim sizes (for var)
         opts.out_type = LIST_DIM_SIZES;
         opts.name = get_optional_arg(argc, argv, ip);
+    } else if (!strcmp(opt, "f")) { // Fortran-style var dimensions
+        opts.dim_style = FORTRAN_DIM_STYLE;
     } else if (!strcmp(opt, "g")) { // force color off
         opts.color = 0;
     } else if (!strcmp(opt, "G")) { // force color on
