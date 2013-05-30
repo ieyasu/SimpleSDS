@@ -134,10 +134,10 @@ static void print_value(SDSType type, void *ary, size_t u)
         printf("%u", ((uint32_t *)ary)[u]);
         break;
     case SDS_I64:
-        printf("%li", ((int64_t *)ary)[u]);
+        printf("%li", (long)((int64_t *)ary)[u]);
         break;
     case SDS_U64:
-        printf("%lu", ((uint64_t *)ary)[u]);
+        printf("%lu", (unsigned long)((uint64_t *)ary)[u]);
         break;
     case SDS_FLOAT:
         printf("%g", ((float *)ary)[u]);
