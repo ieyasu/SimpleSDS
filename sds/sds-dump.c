@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#define MAX_DIMS 32
+
 static const int TYPE_COLOR    = 16; // bright cyan
 static const int ATTNAME_COLOR = 3; // yellow
 static const int VARNAME_COLOR = 2; // green
@@ -38,12 +40,16 @@ struct OutOpts {
     char *separator;
     enum DimStyle dim_style;
     enum OutputType out_type;
-    const char *name; // dim, var, etc. to narrow output to
+    char *name; // dim, var, etc. to narrow output to
     const char *att;
+    int ranges[MAX_DIMS][2], n_ranges;
 };
 
-static struct OutOpts opts = {NULL, 0, 0, " ", FORTRAN_DIM_STYLE,
-                              FULL_SUMMARY, NULL, NULL};
+static struct OutOpts opts = {
+    .infile = NULL, .color = 0, .single_column = 0, .separator = " ",
+    .dim_style = FORTRAN_DIM_STYLE, .out_type = FULL_SUMMARY,
+    .name = NULL, .att = NULL, .n_ranges = -1
+};
 
 #ifndef S_ISLNK
 #  define S_ISLNK(mode) (((mode) & S_IFLNK) != 0)
@@ -467,9 +473,221 @@ static void print_some_values(SDSType type, void *values, size_t count)
     }
 }
 
+static void parse_error(const char *pos, const char *msg)
+{
+    // patch up expr with '[' or '('
+    size_t o = strlen(opts.name);
+    opts.name[o] = '[';
+    size_t l = strlen(opts.name);
+    if (opts.name[l-1] == ')')
+        opts.name[o] = '(';
+
+    fprintf(stderr, "in %s\n", opts.name);
+    for (int i = (pos - opts.name) + 3; i > 0; i--)
+        fputc(' ', stderr);
+    fprintf(stderr, "^\nparse error: %s\n", msg);
+
+    exit(-1);
+}
+
+static char *skip_ws(char *s)
+{
+    while (*s == ' ' || *s == '\t')
+        s++;
+    return s;
+}
+
+/* parse one dimension of a range expression.
+ * [START] ':' [END] | START
+ * stop - the character(s) to stop parsing at
+ */
+static char *parse_one_range(char *s)
+{
+    char *nxt;
+
+    s = skip_ws(s);
+
+    if ('0' <= *s && *s <= '9') { // have a start
+        opts.ranges[opts.n_ranges][0] = strtol(s, &nxt, 0);
+        s = skip_ws(nxt);
+    } else {
+        opts.ranges[opts.n_ranges][0] = -1;
+    }
+
+    if (*s == ':') {
+        s = skip_ws(s + 1);
+    } else if (opts.ranges[opts.n_ranges][0] >= 0) {
+        opts.ranges[opts.n_ranges][1] = opts.ranges[opts.n_ranges][0];
+        goto finish;
+    } else {
+        parse_error(s, "expected a number or ':'");
+    }
+
+    if ('0' <= *s && *s <= '9') { // have an end
+        opts.ranges[opts.n_ranges][1] = strtol(s, &nxt, 0);
+        s = skip_ws(nxt);
+    } else {
+        opts.ranges[opts.n_ranges][1] = -1;
+    }
+
+    if (opts.ranges[opts.n_ranges][0] >= 0 &&
+        opts.ranges[opts.n_ranges][1] >= 0 &&
+        opts.ranges[opts.n_ranges][0] > opts.ranges[opts.n_ranges][1]) {
+        parse_error(s, "start of range must be less than or equal to end");
+    }
+
+ finish:
+    opts.n_ranges++;
+    return s;
+}
+
+// "[...][...]", 0-based
+//   ^
+static void parse_c_range(char *s)
+{
+    for (opts.n_ranges = 0; opts.n_ranges < MAX_DIMS;) {
+        s = parse_one_range(s);
+        if (*s == ']') {
+            s = skip_ws(s + 1);
+        } else {
+            parse_error(s, "expected ']'");
+        }
+        fprintf(stderr, "got c range [%i:%i]\n", opts.ranges[opts.n_ranges-1][0], opts.ranges[opts.n_ranges-1][1]);
+
+        if (*s == '\0') { // end of string
+            return;
+        } else if (*s == '[') { // start of next dim
+            s = skip_ws(s + 1);
+            // and continue looping
+        } else {
+            parse_error(s, "expected '[' or end of range");
+        }
+    }
+    parse_error(s, "too many dimensions!");
+}
+
+// "(...,...)", 1-based
+//   ^
+static void parse_fortran_range(char *s)
+{
+    for (opts.n_ranges = 0; opts.n_ranges < MAX_DIMS;) {
+        s = parse_one_range(s);
+        fprintf(stderr, "got fortran range (%i:%i)\n", opts.ranges[opts.n_ranges-1][0], opts.ranges[opts.n_ranges-1][1]);
+        if (*s == ',') {
+            s = skip_ws(s + 1);
+            // and continue looping to next dim
+        } else if (*s == ')') {
+            s = skip_ws(s + 1);
+            if (*s == '\0') {
+                break; // end of range expression
+            } else {
+                parse_error(s, "unexpected text after ')'");
+            }
+        } else {
+            parse_error(s, "expected ',' or ')'");
+        }
+    }
+
+    if (opts.n_ranges >= MAX_DIMS) {
+        parse_error(s, "too many dimensions!");
+    }
+
+    // make 0-based
+    for (int i = 0; i < opts.n_ranges; i++) {
+        for (int j = 0; j < 2; j++) {
+            if (opts.ranges[i][j] > 0) {
+                opts.ranges[i][j]--;
+            } else if (opts.ranges[i][j] == 0) {
+                fprintf(stderr, "in dimension %i of range: cannot start indexes with 0!\n", i);
+                exit(-1);
+            }
+        }
+    }
+
+    // reverse range order
+    for (int i = 0, j = opts.n_ranges - 1; i < j; i++, j--) {
+        int a = opts.ranges[i][0];
+        int b = opts.ranges[i][1];
+        opts.ranges[i][0] = opts.ranges[j][0];
+        opts.ranges[i][1] = opts.ranges[j][1];
+        opts.ranges[j][0] = a;
+        opts.ranges[j][1] = b;
+    }
+}
+
+static void parse_var_range(void)
+{
+    int l = (int)strlen(opts.name) - 1;
+    if (l <= 2)
+        return;
+
+    if (opts.name[l] == ')') {
+        char *opar = strchr(opts.name, '(');
+        if (opar) {
+            *opar = '\0';
+            parse_fortran_range(opar + 1);
+        }
+    } else if (opts.name[l] == ']') {
+        char *obracket = strchr(opts.name, '[');
+        if (obracket) {
+            *obracket = '\0';
+            parse_c_range(obracket + 1);
+        }
+    }
+
+    l = strlen(opts.name) - 1;
+    while (l > 1 && (opts.name[l] == ' ' || opts.name[l] == '\t')) {
+        opts.name[l--] = '\0';
+    }
+}
+
+static void validate_ranges(SDSVarInfo *var)
+{
+    int invalid = 0;
+
+    if (var->ndims != opts.n_ranges) {
+        fprintf(stderr, "Variable %s has %i dimensions, but got %i in the range\n",
+                var->name, var->ndims, opts.n_ranges);
+        invalid = -1;
+    }
+
+    for (int i = 0; i < var->ndims; i++) {
+        if (opts.ranges[i][0] > var->dims[i]->size) {
+            fprintf(stderr, "Variable %s dimension %i range starts too high (%i > %u)\n",
+                    var->name, i+1, opts.ranges[i][0], (unsigned)var->dims[i]->size);
+            invalid = -1;
+        }
+        if (opts.ranges[i][1] > var->dims[i]->size) {
+            fprintf(stderr, "Variable %s dimension %i range ends past actual end (%i > %u)\n",
+                    var->name, i+1, opts.ranges[i][1], (unsigned)var->dims[i]->size);
+            invalid = -1;
+        }
+    }
+
+    if (invalid)
+        exit(-1);
+}
+
 static void print_var_values(SDSInfo *sds)
 {
+    parse_var_range();
     SDSVarInfo *var = var_or_die(sds, opts.name);
+
+    if (opts.n_ranges > 0) {
+        validate_ranges(var);
+    } else {
+        if (var->ndims > MAX_DIMS) {
+            fprintf(stderr, "too many dims! (%i %s)\n", var->ndims, var->name);
+            abort();
+        }
+        // fill out ranges so they match the full variable
+        for (size_t u = 0; u < var->ndims; u++) {
+            opts.ranges[u][0] = 0;
+            opts.ranges[u][1] = (int)var->dims[u]->size;
+        }
+    }
+
+    // XXX use opts.ranges to subset var (or not)
 
     size_t count_per_tstep = 1;
     for (int i = 1; i < var->ndims; i++)
@@ -521,6 +739,10 @@ static const char *USAGE =
     "                 variable if given\n"
     "  -lv            list the variables in the file\n"
     "  -v VAR         print the specified variable's values\n"
+    "  -v VAR[RANGE]\n"
+    "  -v VAR(RANGE)  print a subset of the specified variable's values\n"
+    "\n"
+    "Where RANGE is an expression in one of two forms.  A Fortran-style range uses parentheses and looks like '(1:3,:6,:)'; an equivalent C-style range uses square brackets and looks like '[0:2][:5][:]'."
 ;
 
 static void usage(const char *progname, const char *message, ...)
@@ -547,7 +769,7 @@ static void usage(const char *progname, const char *message, ...)
  * (typically variable names), return the name if given and NULL otherwise.
  * Increments ip if the optional argument is found.
  */
-static const char *get_optional_arg(int argc, char **argv, int *ip)
+static char *get_optional_arg(int argc, char **argv, int *ip)
 {
     if (*ip + 1 >= argc) {
         return NULL; // past end of argv
@@ -569,7 +791,7 @@ static void parse_arg(int argc, char **argv, int *ip)
         opts.separator = "\n";
     } else if (!strcmp(opt, "a")) { // print attribute values
         opts.out_type = PRINT_ATTS;
-        const char *s = get_optional_arg(argc, argv, ip);
+        char *s = get_optional_arg(argc, argv, ip);
         if (s) {
             char *at = strchr(s, '@');
             if (at) {
