@@ -62,8 +62,9 @@ SDSVarInfo *sds_vars_generic_copy(SDSVarInfo *var, SDSDimInfo *newdims)
 {
     SDSVarInfo *next = (var->next == NULL) ? NULL : sds_vars_generic_copy(var->next, newdims);
     // match up var->dims to those in newdims
-    SDSDimInfo **dims = alloca(sizeof(SDSDimInfo *) * var->ndims);
-    for (int i = 0; i < var->ndims; i++) {
+    int n = (var->ndims < 1) ? 1 : var->ndims;
+    const SDSDimInfo **dims = alloca(sizeof(SDSDimInfo *) * n);
+    for (int i = 0; i < n; i++) {
         dims[i] = sds_dim_by_name(newdims, var->dims[i]->name);
         if (!dims[i]) {
             fprintf(stderr, "could not find new dimension named '%s' when copying var '%s'\n",
@@ -170,7 +171,7 @@ SDSDimInfo *sds_create_dim(SDSDimInfo *next, const char *name, size_t size,
 SDSVarInfo *sds_create_varv(SDSVarInfo *next, const char *name, SDSType type,
                             int iscoord, SDSAttInfo *atts, int ndims, ...)
 {
-    SDSDimInfo **dims = alloca(sizeof(SDSDimInfo *) * ndims);
+    const SDSDimInfo **dims = alloca(sizeof(SDSDimInfo *) * ndims);
     va_list ap;
 
     va_start(ap, ndims);
@@ -197,7 +198,7 @@ SDSVarInfo *sds_create_varv(SDSVarInfo *next, const char *name, SDSType type,
  */
 SDSVarInfo *sds_create_var(SDSVarInfo *next, const char *name, SDSType type,
                            int iscoord, SDSAttInfo *atts,
-                           int ndims, SDSDimInfo **dims)
+                           int ndims, const SDSDimInfo **dims)
 {
     SDSVarInfo *var = NEW(SDSVarInfo);
     var->next = next;
@@ -503,28 +504,7 @@ void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp)
  */
 void *sds_read(SDSVarInfo *var, void **bufp)
 {
-    int *index = ALLOCA(int, (var->ndims < 1) ? 1 : var->ndims);
-    for (int i = 0; i < var->ndims; i++) {
-        index[i] = -1; // read all of this dimension
-    }
-    return (var->sds->funcs->var_readv)(var, bufp, index);
-}
-
-/* Writes all of a given variable.
- * buf: a pointer to the raw data.
- */
-void sds_write(SDSVarInfo *var, void *buf)
-{
-    int *index = ALLOCA(int, var->ndims);
-    for (int i = 0; i < var->ndims; i++) {
-        index[i] = -1; // read all of this dimension
-    }
-    (var->sds->funcs->var_writev)(var, buf, index);
-}
-
-void sds_writev(SDSVarInfo *var, void *buf, int *idx)
-{
-    (var->sds->funcs->var_writev)(var, buf, idx);
+    return (var->sds->funcs->var_readv)(var, bufp, NULL, NULL);
 }
 
 /* Read all of one timestep (i.e. the first dimension) from the given variable.
@@ -537,12 +517,13 @@ void sds_writev(SDSVarInfo *var, void *buf, int *idx)
  */
 void *sds_timestep(SDSVarInfo *var, void **bufp, int tstep)
 {
-    int *index = ALLOCA(int, var->ndims);
-    index[0] = tstep;
-    for (int i = 1; i < var->ndims; i++) {
-        index[i] = -1; // read all of this dimension
+    int n = (var->ndims < 1) ? 1 : var->ndims;
+    int *count = ALLOCA(int, n);
+    count[0] = tstep;
+    for (int i = 1; i < n; i++) {
+        count[i] = -1; // read all of this dimension
     }
-    return (var->sds->funcs->var_readv)(var, bufp, index);
+    return (var->sds->funcs->var_readv)(var, bufp, NULL, count);
 }
 
 /* Read from the given variable, subsetting based on the index array.
@@ -551,14 +532,34 @@ void *sds_timestep(SDSVarInfo *var, void **bufp, int tstep)
  *       set to NULL, then pass in the address of that variable.  Keep passing
  *       in that same void-pointer-pointer to re-use the buffer.  When you are
  *       done with the buffer, use sds_buffer_free to free it from memory.
- * index: an array of var->ndims elements used to index into the variable's
- *        data.  Each element >= 0 indicates that only that index of the
- *        corresponding dimension will be read.  Otherwise, the whole length
- *        of that dimension will be read.
+ * start: an array of var->dims size giving the start index of that
+ *        dimension to read from.  If NULL, every index defaults to 0.
+ * count: an array of var->dims size giving the number of elements to read in
+ *        that dimension.  If the value of any index is -1, then the count
+ *        will go to the end of that dimension.  If NULL, every element
+ *        defaults to -1.
  */
-void *sds_readv(SDSVarInfo *var, void **bufp, int *index)
+void *sds_readv(SDSVarInfo *var, void **bufp, int *start, int *count)
 {
-    return (var->sds->funcs->var_readv)(var, bufp, index);
+    return (var->sds->funcs->var_readv)(var, bufp, start, count);
+}
+
+/* Writes all of a given variable.
+ * buf: a pointer to the raw data.
+ */
+void sds_write(SDSVarInfo *var, void *buf)
+{
+    int n = (var->ndims < 1) ? 1 : var->ndims;
+    int *index = ALLOCA(int, n);
+    for (int i = 0; i < n; i++) {
+        index[i] = -1; // read all of this dimension
+    }
+    (var->sds->funcs->var_writev)(var, buf, index);
+}
+
+void sds_writev(SDSVarInfo *var, void *buf, int *idx)
+{
+    (var->sds->funcs->var_writev)(var, buf, idx);
 }
 
 struct GenericBuffer {

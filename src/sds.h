@@ -9,6 +9,8 @@
 // use like:
 //     float *var = ...;
 //     ... = var[SDS_IDX2D(lat, lon, nlon)];
+//
+// [time][lat][lon] => SDS_IDX3D()
 #define SDS_IDX2D(i,j, nj) (i * nj + j)
 #define SDS_IDX3D(i,j,k, nj,nk) ((i * nj + j) * nk + k)
 #define SDS_IDX4D(i,j,k,l, nj,nk,nl) (((i * nj + j) * nk + k) * nl + l)
@@ -136,7 +138,7 @@ struct SDSInfo {
 };
 
 struct SDS_Funcs {
-    void *(*var_readv)(SDSVarInfo *, void **, int *);
+    void *(*var_readv)(SDSVarInfo *, void **, int *, int *);
     void (*var_writev)(SDSVarInfo *, void *, int *);
     void (*close)(SDSInfo *);
 };
@@ -156,7 +158,8 @@ void *sds_read_var_by_name(SDSInfo *sds, const char *name, void **bufp);
 
 void *sds_read(SDSVarInfo *var, void **bufp);
 void *sds_timestep(SDSVarInfo *var, void **buf, int tstep);
-void *sds_readv(SDSVarInfo *var, void **bufp, int *idx);
+void *sds_readv(SDSVarInfo *var, void **bufp,
+                const int *start, const int *count);
 
 void sds_buffer_free(void *buf);
 
@@ -187,7 +190,7 @@ SDSVarInfo *sds_create_varv(SDSVarInfo *next, const char *name, SDSType type,
                             int iscoord, SDSAttInfo *atts, int ndims, ...);
 SDSVarInfo *sds_create_var(SDSVarInfo *next, const char *name, SDSType type,
                            int iscoord, SDSAttInfo *atts,
-                           int ndims, SDSDimInfo **dims);
+                           int ndims, const SDSDimInfo **dims);
 
 // Copy an existing SDS structure to write a modified version thereof
 SDSInfo *sds_generic_copy(SDSInfo *sds);

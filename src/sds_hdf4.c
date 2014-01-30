@@ -91,25 +91,28 @@ static H4Buffer *prep_read_buffer(SDSVarInfo *var, void **bufp)
     return buf;
 }
 
-static void *var_readv(SDSVarInfo *var, void **bufp, int *index)
+static void *var_readv(SDSVarInfo *var, void **bufp, int *start, int *count)
 {
-    int32 start[H4_MAX_VAR_DIMS], count[H4_MAX_VAR_DIMS];
+    int32 hstart[H4_MAX_VAR_DIMS], hcount[H4_MAX_VAR_DIMS];
     size_t bufsize = sds_type_size(var->type);
     for (int i = 0; i < var->ndims; i++) {
-        if (index[i] < 0) {
-            start[i] = 0;
-            count[i]   = (int32)var->dims[i]->size;
-        } else {
-            start[i] = (int32)index[i];
-            count[i]   = 1;
-        }
-        bufsize *= (size_t)count[i];
+        if (!start || start[i] < 0)
+            hstart[i] = 0;
+        else
+            hstart[i] = (int32)start[i];
+
+        if (!count || count[i] < 0)
+            hcount[i] = (int32)var->dims[i]->size;
+        else
+            hcount[i] = (int32)count[i];
+
+        bufsize *= (size_t)hcount[i];
     }
 
     H4Buffer *buf = prep_read_buffer(var, bufp);
     h4buffer_ensure(buf, bufsize);
 
-    int status = SDreaddata(buf->sds_id, start, NULL, count, buf->data);
+    int status = SDreaddata(buf->sds_id, hstart, NULL, hcount, buf->data);
     CHECK_HDF_ERROR(var->sds->path, status);
 
     return buf->data;

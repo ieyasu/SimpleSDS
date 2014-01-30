@@ -54,29 +54,32 @@ static void nc_buffer_ensure(NCBuffer *buf, size_t cap_needed)
     }
 }
 
-static void *var_readv(SDSVarInfo *var, void **bufp, int *index)
+static void *var_readv(SDSVarInfo *var, void **bufp, int *start, int *count)
 {
     int status;
 
     int ndims = var->ndims;
     if (ndims < 1) ndims = 1;
-    size_t *start = ALLOCA(size_t, ndims);
-    size_t *count = ALLOCA(size_t, ndims);
+    size_t *nc_start = ALLOCA(size_t, ndims);
+    size_t *nc_count = ALLOCA(size_t, ndims);
     size_t bufsize = sds_type_size(var->type);
 
     if (var->ndims < 1) {
-        start[0] = 0;
-        count[0] = 1;
+        nc_start[0] = 0;
+        nc_count[0] = 1;
     } else {
         for (int i = 0; i < var->ndims; i++) {
-            if (index[i] < 0) {
-                start[i] = 0;
-                count[i] = var->dims[i]->size;
-            } else {
-                start[i] = (size_t)index[i];
-                count[i] = 1;
-            }
-            bufsize *= count[i];
+            if (!start || start[i] < 0)
+                nc_start[i] = 0;
+            else
+                nc_start[i] = (size_t)start[i];
+
+            if (!count || count[i] < 0)
+                nc_count[i] = var->dims[i]->size - nc_start[i];
+            else
+                nc_count[i] = (size_t)count[i];
+
+            bufsize *= nc_count[i];
         }
     }
 
@@ -89,38 +92,39 @@ static void *var_readv(SDSVarInfo *var, void **bufp, int *index)
     nc_buffer_ensure(buf, bufsize);
 
 #if HAVE_NETCDF4
-    status = nc_get_vars(var->sds->id, var->id, start, count, NULL, buf->data);
+    status = nc_get_vars(var->sds->id, var->id, nc_start, nc_count,
+                         NULL, buf->data);
     CHECK_NC_ERROR(var->sds->path, status);
 #else
     switch (var->type) {
     case SDS_I8:
-        status = nc_get_vars_uchar(var->sds->id, var->id, start, count, NULL,
-                                   (unsigned char*)buf->data);
+        status = nc_get_vars_uchar(var->sds->id, var->id, nc_start, nc_count,
+                                   NULL, (unsigned char*)buf->data);
         CHECK_NC_ERROR(var->sds->path, status);
         break;
     case SDS_I16:
-        status = nc_get_vars_short(var->sds->id, var->id, start, count, NULL,
-                                   (short*)buf->data);
+        status = nc_get_vars_short(var->sds->id, var->id, nc_start, nc_count,
+                                   NULL, (short*)buf->data);
         CHECK_NC_ERROR(var->sds->path, status);
         break;
     case SDS_I32:
-        status = nc_get_vars_int(var->sds->id, var->id, start, count, NULL,
-                                 (int*)buf->data);
+        status = nc_get_vars_int(var->sds->id, var->id, nc_start, nc_count,
+                                 NULL, (int*)buf->data);
         CHECK_NC_ERROR(var->sds->path, status);
         break;
     case SDS_FLOAT:
-        status = nc_get_vars_float(var->sds->id, var->id, start, count, NULL,
-                                   (float*)buf->data);
+        status = nc_get_vars_float(var->sds->id, var->id, nc_start, nc_count,
+                                   NULL, (float*)buf->data);
         CHECK_NC_ERROR(var->sds->path, status);
         break;
     case SDS_DOUBLE:
-        status = nc_get_vars_double(var->sds->id, var->id, start, count, NULL,
-                                    (double*)buf->data);
+        status = nc_get_vars_double(var->sds->id, var->id, nc_start, nc_count,
+                                    NULL, (double*)buf->data);
         CHECK_NC_ERROR(var->sds->path, status);
         break;
     case SDS_STRING:
-        status = nc_get_vars_text(var->sds->id, var->id, start, count, NULL,
-                                  (char*)buf->data);
+        status = nc_get_vars_text(var->sds->id, var->id, nc_start, nc_count,
+                                  NULL, (char*)buf->data);
         CHECK_NC_ERROR(var->sds->path, status);
         break;
     case SDS_NO_TYPE:
