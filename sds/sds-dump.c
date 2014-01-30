@@ -859,7 +859,7 @@ int main(int argc, char **argv)
 {
     parse_args(argc, argv);
 
-    SDSInfo *sds = open_any_sds(opts.infile);
+    SDSInfo *sds = sds_open(opts.infile);
     if (!sds) {
         fesc_bold(stderr);
         fputs(opts.infile, stderr);

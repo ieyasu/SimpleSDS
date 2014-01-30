@@ -296,7 +296,7 @@ static SDSDimInfo **read_dimensions(SDSInfo *sds, int sds_id, int rank,
 /* Opens an HDF file and reads all its SDS metadata, returning an SDSInfo
  * structure containing this metadata.  Returns NULL on error.
  */
-SDSInfo *open_h4_sds(const char *path)
+SDSInfo *sds_h4_open(const char *path)
 {
     int i, status;
 

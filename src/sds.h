@@ -119,8 +119,10 @@ typedef struct SDSVarInfo {
     int ndims;
     SDSDimInfo **dims;
     SDSAttInfo *atts;
-    int id; /* private */
-    SDSInfo *sds; /* private */
+
+    // private
+    int id;
+    SDSInfo *sds;
 } SDSVarInfo;
 
 struct SDSInfo {
@@ -145,10 +147,12 @@ struct SDS_Funcs {
 
 SDSFileType sds_file_type(const char *path);
 
-// open existing SDS file
-SDSInfo *open_nc_sds(const char *path);
-SDSInfo *open_h4_sds(const char *path);
-SDSInfo *open_any_sds(const char *path);
+// open existing SDS files
+SDSInfo *sds_open(const char *path);
+
+// XXX show these only if we have NC, HDF4 support config'd
+//SDSInfo *sds_nc_open(const char *path);
+//SDSInfo *sds_h4_open(const char *path);
 
 // write new SDS file
 void write_as_nc_sds(const char *path, SDSInfo *sds);

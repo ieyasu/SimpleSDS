@@ -260,7 +260,10 @@ SDSFileType sds_file_type(const char *path)
     return SDS_UNKNOWN_FILE;
 }
 
-SDSInfo *open_any_sds(const char *path)
+SDSInfo *sds_nc_open(const char *path);
+SDSInfo *sds_h4_open(const char *path);
+
+SDSInfo *sds_open(const char *path)
 {
     switch (sds_file_type(path)) {
 
@@ -270,12 +273,13 @@ SDSInfo *open_any_sds(const char *path)
                 path);
         return NULL;
 #endif
+        // fall through from NC4 -> NC3
     case SDS_NC3_FILE:
-        return open_nc_sds(path);
+        return sds_nc_open(path);
 
     case SDS_HDF4_FILE:
 #ifdef HAVE_HDF4
-        return open_h4_sds(path);
+        return sds_h4_open(path);
 #else
         fprintf(stderr, "not compiled with HDF4 support (%s)\n",
                 path);

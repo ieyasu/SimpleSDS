@@ -130,7 +130,7 @@ int main(int argc, char **argv)
     parse_args(argc, argv);
 
     /* read netcdf metadata */
-    nc_info = open_nc_sds(input_file);
+    nc_info = sds_open(input_file);
     assert(nc_info != NULL);
 
     /* open output file */

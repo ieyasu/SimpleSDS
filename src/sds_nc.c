@@ -351,7 +351,7 @@ static void map_dimids(SDSVarInfo *vi, int *dimids, SDSDimInfo *dims)
 /* Opens a NetCDF file and reads all its metadata, returning an SDSInfo
  * structure containing this metadata.  Returns NULL on error.
  */
-SDSInfo *open_nc_sds(const char *path)
+SDSInfo *sds_nc_open(const char *path)
 {
     int ids[MAX(MAX(NC_MAX_DIMS, NC_MAX_ATTRS), NC_MAX_VARS)];
     int dimids[NC_MAX_VAR_DIMS], unlimdimid;
