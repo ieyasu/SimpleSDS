@@ -123,7 +123,10 @@ void exec_subcommand(int orig_argc, char **orig_argv, int istty)
 int larger_than_terminal(char *buf, int buflen)
 {
     struct winsize w;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
+        errno = 0;
+        return 0; // not a terminal, ergo not too big
+    }
     w.ws_row -= 2;
 
     int lines = 0, col = 0;
