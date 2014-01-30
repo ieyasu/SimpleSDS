@@ -539,7 +539,7 @@ void *sds_timestep(SDSVarInfo *var, void **bufp, int tstep)
  *        will go to the end of that dimension.  If NULL, every element
  *        defaults to -1.
  */
-void *sds_readv(SDSVarInfo *var, void **bufp, int *start, int *count)
+void *sds_readv(SDSVarInfo *var, void **bufp, const int *start, const int *count)
 {
     return (var->sds->funcs->var_readv)(var, bufp, start, count);
 }

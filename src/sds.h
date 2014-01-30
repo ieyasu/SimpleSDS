@@ -138,8 +138,8 @@ struct SDSInfo {
 };
 
 struct SDS_Funcs {
-    void *(*var_readv)(SDSVarInfo *, void **, int *, int *);
-    void (*var_writev)(SDSVarInfo *, void *, int *);
+    void *(*var_readv)(SDSVarInfo *, void **, const int *, const int *);
+    void (*var_writev)(SDSVarInfo *, void *, const int *);
     void (*close)(SDSInfo *);
 };
 

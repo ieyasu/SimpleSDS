@@ -54,7 +54,8 @@ static void nc_buffer_ensure(NCBuffer *buf, size_t cap_needed)
     }
 }
 
-static void *var_readv(SDSVarInfo *var, void **bufp, int *start, int *count)
+static void *var_readv(SDSVarInfo *var, void **bufp,
+                       const int *start, const int *count)
 {
     int status;
 
@@ -136,7 +137,7 @@ static void *var_readv(SDSVarInfo *var, void **bufp, int *start, int *count)
     return buf->data;
 }
 
-static void var_writev(SDSVarInfo *var, void *data, int *index)
+static void var_writev(SDSVarInfo *var, void *data, const int *index)
 {
     int status;
 

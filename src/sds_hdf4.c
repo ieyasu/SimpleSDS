@@ -91,7 +91,8 @@ static H4Buffer *prep_read_buffer(SDSVarInfo *var, void **bufp)
     return buf;
 }
 
-static void *var_readv(SDSVarInfo *var, void **bufp, int *start, int *count)
+static void *var_readv(SDSVarInfo *var, void **bufp,
+                       const int *start, const int *count)
 {
     int32 hstart[H4_MAX_VAR_DIMS], hcount[H4_MAX_VAR_DIMS];
     size_t bufsize = sds_type_size(var->type);
@@ -118,7 +119,7 @@ static void *var_readv(SDSVarInfo *var, void **bufp, int *start, int *count)
     return buf->data;
 }
 
-static void var_writev(SDSVarInfo *var, void *data, int *index)
+static void var_writev(SDSVarInfo *var, void *data, const int *index)
 {
 	fprintf(stderr, "hdf4 variable writing not implemented yet!\n");
 	abort();
