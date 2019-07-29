@@ -1,3 +1,5 @@
+This was a nice thought, but I ran out of steam quite a while ago.  I'm not sure there's a point to this sort of tooling when we have libraries for languanges like Python which can glue together whatever this project would have done.
+
 Simple SDS
 ==========
 
